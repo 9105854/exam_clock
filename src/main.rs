@@ -53,6 +53,7 @@ impl Application for Clock {
     }
 
     fn view(&self) -> Element<Message> {
+        
         Container::new(
             text(
                 self.now
@@ -61,7 +62,7 @@ impl Application for Clock {
                     .split(".")
                     .collect::<Vec<&str>>()[0],
             )
-            .size(200),
+            .size(300),
         )
         .width(Length::Fill)
         .height(Length::Fill)
