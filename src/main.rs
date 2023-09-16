@@ -1,7 +1,6 @@
 use iced::widget::{text, Container};
 use iced::{executor, Length};
 use iced::{Application, Command, Element, Settings, Subscription, Theme};
-use chrono::prelude::*;
 pub fn main() -> iced::Result {
     Clock::run(Settings {
         antialiasing: true,
@@ -10,12 +9,12 @@ pub fn main() -> iced::Result {
 }
 
 struct Clock {
-    now: DateTime<Local>,
+    now: chrono::DateTime<chrono::Local>,
 }
 
 #[derive(Debug, Clone, Copy)]
 enum Message {
-    Tick(DateTime<Local>),
+    Tick(chrono::DateTime<chrono::Local>),
 }
 
 impl Application for Clock {
@@ -27,7 +26,7 @@ impl Application for Clock {
     fn new(_flags: ()) -> (Self, Command<Message>) {
         (
             Clock {
-                now: Local::now()
+                now: chrono::Local::now()
             
             },
             Command::none(),
@@ -74,7 +73,7 @@ impl Application for Clock {
     fn subscription(&self) -> Subscription<Message> {
         iced::time::every(std::time::Duration::from_millis(1)).map(|_| {
             Message::Tick(
-                Local::now()
+                chrono::Local::now()
                    
             )
         })
