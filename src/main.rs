@@ -2,6 +2,7 @@ use iced::widget::{text, Container};
 use iced::{executor, Length};
 use iced::{Application, Command, Element, Settings, Subscription, Theme};
 pub fn main() -> iced::Result {
+    println!("Hello World");
     Clock::run(Settings {
         antialiasing: true,
         ..Settings::default()
@@ -26,15 +27,14 @@ impl Application for Clock {
     fn new(_flags: ()) -> (Self, Command<Message>) {
         (
             Clock {
-                now: chrono::Local::now()
-            
+                now: chrono::Local::now(),
             },
             Command::none(),
         )
     }
 
     fn title(&self) -> String {
-        String::from("Clock - Iced")
+        String::from("Clock")
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
@@ -52,7 +52,6 @@ impl Application for Clock {
     }
 
     fn view(&self) -> Element<Message> {
-        
         Container::new(
             text(
                 self.now
@@ -71,11 +70,7 @@ impl Application for Clock {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        iced::time::every(std::time::Duration::from_millis(1)).map(|_| {
-            Message::Tick(
-                chrono::Local::now()
-                   
-            )
-        })
+        iced::time::every(std::time::Duration::from_millis(1))
+            .map(|_| Message::Tick(chrono::Local::now()))
     }
 }
