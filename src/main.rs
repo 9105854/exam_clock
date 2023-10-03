@@ -8,7 +8,6 @@ pub fn main() -> iced::Result {
         ..Settings::default()
     })
 }
-
 struct Clock {
     now: chrono::DateTime<chrono::Local>,
 }
