@@ -1,13 +1,11 @@
-use std::num::ParseIntError;
-use std::str::FromStr;
-
-use iced::mouse::Button;
-use iced::widget::{button, column, container, row, text, text_input, Column, Row};
-use iced::{alignment, executor, Length, Renderer};
+use iced::widget::{button, column, container, row, text, text_input, Column};
+use iced::{executor, Length, Renderer};
 use iced::{theme, Alignment};
 use iced::{Application, Command, Element, Settings, Subscription};
+use std::num::ParseIntError;
 pub fn main() -> iced::Result {
-    println!("Hello World");
+    println!("Developed by Dominik Beveridge. ");
+    println!("Contact: drmbeveridge@gmail.com, or GitHub code repository");
     Clock::run(Settings {
         antialiasing: true,
 
@@ -143,7 +141,6 @@ impl Application for Clock {
             Message::AddExam => {
                 self.new_exams.push(NewExam::new(self));
                 self.exam_next_id += 1;
-                println!("Added new exam");
             }
             Message::DeleteExam(id) => {
                 let mut to_be_removed = 0;
