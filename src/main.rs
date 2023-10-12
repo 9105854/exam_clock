@@ -1,4 +1,8 @@
-use iced::widget::{button, column, container, row, text, text_input, Column};
+use std::num::ParseIntError;
+use std::str::FromStr;
+
+use iced::mouse::Button;
+use iced::widget::{button, column, container, row, text, text_input, Column, Row};
 use iced::{alignment, executor, Length, Renderer};
 use iced::{theme, Alignment};
 use iced::{Application, Command, Element, Settings, Subscription};
@@ -15,38 +19,16 @@ struct NewExam {
     name: String,
     length: String,
     perusal: String,
-}
-
-#[derive(Clone, Debug)]
-pub enum NewExamMessage {
-    Started,
-    LengthEdited(String),
+    id: u32,
 }
 impl NewExam {
-    fn new() -> Self {
+    fn new(clock: &Clock) -> Self {
         NewExam {
             name: "".to_string(),
             length: "".to_string(),
             perusal: "".to_string(),
+            id: clock.exam_next_id,
         }
-    }
-    fn update(&mut self, message: NewExamMessage) {
-        match message {
-            NewExamMessage::LengthEdited(new_length) => {
-                self.length = new_length;
-            }
-            NewExamMessage::Started => {}
-        }
-    }
-
-    fn view(&self) -> Element<NewExamMessage> {
-        row![
-            text_input("Exam Name", &self.name),
-            text_input("Perusal Length", &self.perusal),
-            text_input("Exam Length", &self.length).on_input(NewExamMessage::LengthEdited),
-            button("Start Exam").on_press(NewExamMessage::Started)
-        ]
-        .into()
     }
 }
 
@@ -55,30 +37,74 @@ struct StartedExam {
     perusal_start_time: chrono::DateTime<chrono::Local>,
     exam_start_time: chrono::DateTime<chrono::Local>,
     finish_time: chrono::DateTime<chrono::Local>,
+    id: u32,
+}
+
+impl StartedExam {
+    fn new_from_input(new_exam: NewExam) -> Result<Self, ParseIntError> {
+        let perusal_start_time = chrono::Local::now() + chrono::Duration::minutes(1);
+        let exam_start_time =
+            perusal_start_time + chrono::Duration::minutes(new_exam.perusal.parse::<i64>()?);
+        let finish_time =
+            exam_start_time + chrono::Duration::minutes(new_exam.length.parse::<i64>()?);
+        let name = if new_exam.name == "".to_string() {
+            "Unnamed".to_string()
+        } else {
+            new_exam.name
+        };
+        Ok(StartedExam {
+            name,
+            perusal_start_time,
+            exam_start_time,
+            finish_time,
+            id: new_exam.id,
+        })
+    }
 }
 struct Clock {
     now: chrono::DateTime<chrono::Local>,
     started_exams: Vec<StartedExam>,
-    open_exams: Vec<NewExam>,
+    new_exams: Vec<NewExam>,
     theme: theme::Theme,
+    exam_next_id: u32,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     Tick(chrono::DateTime<chrono::Local>),
-    StartExam,
-    OpenExamMessage(NewExamMessage),
+    AddExam,
+    InputExamMessage(InputExamMessage),
+    DeleteExam(u32),
+}
+#[derive(Debug, Clone)]
+enum InputExamMessage {
+    NameEdit((String, u32)),
+
+    LengthEdit((String, u32)),
+
+    PerusalEdit((String, u32)),
+    Start(u32),
+}
+enum TimeAccuracy {
+    Seconds,
+    Minutes,
 }
 
-fn format_time(time: chrono::DateTime<chrono::Local>) -> String {
+fn format_time(time: chrono::DateTime<chrono::Local>, accuracy: TimeAccuracy) -> String {
     let binding = time.time().to_string();
 
     let formatted_time = &binding.split(":").collect::<Vec<&str>>();
+    let hours = (formatted_time[0].parse::<i32>().unwrap() % 12).to_string();
+    let minutes = formatted_time[1];
+    match accuracy {
+        TimeAccuracy::Seconds => {
+            let seconds = formatted_time[2].split(".").collect::<Vec<&str>>()[0];
 
-    if formatted_time.len() >= 2 {
-        format!("{}:{}", formatted_time[0], formatted_time[1])
-    } else {
-        format!("{}:{}", formatted_time[0], formatted_time[0])
+            format!("{}:{}:{}", hours, minutes, seconds)
+        }
+        TimeAccuracy::Minutes => {
+            format!("{}:{}", hours, minutes)
+        }
     }
 }
 
@@ -92,18 +118,10 @@ impl Application for Clock {
         (
             Clock {
                 now: chrono::Local::now(),
-                open_exams: vec![NewExam {
-                    name: "Physics".to_string(),
-                    length: String::from("120"),
-                    perusal: String::from("10"),
-                }],
-                started_exams: vec![StartedExam {
-                    name: "Maths".to_string(),
-                    perusal_start_time: chrono::Local::now(),
-                    exam_start_time: chrono::Local::now() + chrono::Duration::minutes(10),
-                    finish_time: chrono::Local::now() + chrono::Duration::minutes(120),
-                }],
+                new_exams: vec![],
+                started_exams: vec![],
                 theme: theme::Theme::Dark,
+                exam_next_id: 2,
             },
             Command::none(),
         )
@@ -122,10 +140,62 @@ impl Application for Clock {
                     self.now = now;
                 }
             }
-            Message::StartExam => {}
-            Message::OpenExamMessage(message) => match message {
-                NewExamMessage::Started => {}
-                NewExamMessage::LengthEdited(length) => {}
+            Message::AddExam => {
+                self.new_exams.push(NewExam::new(self));
+                self.exam_next_id += 1;
+                println!("Added new exam");
+            }
+            Message::DeleteExam(id) => {
+                let mut to_be_removed = 0;
+                for (i, exam) in self.started_exams.iter().enumerate() {
+                    if exam.id == id {
+                        to_be_removed = i;
+                        break;
+                    }
+                }
+                self.started_exams.remove(to_be_removed);
+            }
+            Message::InputExamMessage(exam_message) => match exam_message {
+                InputExamMessage::NameEdit((name, id)) => {
+                    for exam in self.new_exams.iter_mut() {
+                        if exam.id == id {
+                            exam.name = name;
+                            break;
+                        }
+                    }
+                }
+                InputExamMessage::LengthEdit((length, id)) => {
+                    for exam in self.new_exams.iter_mut() {
+                        if exam.id == id {
+                            exam.length = length;
+                            break;
+                        }
+                    }
+                }
+                InputExamMessage::PerusalEdit((perusal, id)) => {
+                    for exam in self.new_exams.iter_mut() {
+                        if exam.id == id {
+                            exam.perusal = perusal;
+                            break;
+                        }
+                    }
+                }
+                InputExamMessage::Start(id) => {
+                    let mut to_be_removed = None;
+                    for (i, exam) in self.new_exams.iter().enumerate() {
+                        if exam.id == id {
+                            let started_exam = StartedExam::new_from_input(exam.clone());
+                            if let Ok(success) = started_exam {
+                                self.started_exams.push(success);
+                                to_be_removed = Some(i);
+                            }
+                            break;
+                        }
+                    }
+                    if let Some(i) = to_be_removed {
+                        self.new_exams.remove(i);
+                    }
+                }
             },
         }
 
@@ -136,24 +206,70 @@ impl Application for Clock {
         //  text(self.exams[0].name.clone()).size(50),
         // text(format!("Length: {length_string} minutes")).size(50),
         // ]);
+        let new_exams: Column<'_, Message, Renderer> = column(
+            self.new_exams
+                .iter()
+                .map(|new_exam| {
+                    row![
+                        text_input("Exam Name", &new_exam.name).on_input(|name| {
+                            Message::InputExamMessage(InputExamMessage::NameEdit((
+                                name.to_string(),
+                                new_exam.id,
+                            )))
+                        }),
+                        text_input("Perusal", &new_exam.perusal).on_input(|perusal| {
+                            Message::InputExamMessage(InputExamMessage::PerusalEdit((
+                                perusal.to_string(),
+                                new_exam.id,
+                            )))
+                        }),
+                        text_input("Length", &new_exam.length).on_input(|length| {
+                            Message::InputExamMessage(InputExamMessage::LengthEdit((
+                                length.to_string(),
+                                new_exam.id,
+                            )))
+                        }),
+                        button("Start Exam").on_press(Message::InputExamMessage(
+                            InputExamMessage::Start(new_exam.id)
+                        ))
+                    ]
+                    .spacing(10)
+                    .into()
+                })
+                .collect(),
+        )
+        .spacing(10);
         let exams: Column<'_, Message, Renderer> = column(
             self.started_exams
                 .iter()
-                .enumerate()
-                .map(|(_i, exam)| {
+                .map(|exam| {
                     container(
                         row![
-                            text(format!("{}:", &exam.name)).size(50),
+                            text(format!("{}:", &exam.name))
+                                .font(iced::Font {
+                                    weight: iced::font::Weight::Bold,
+                                    ..iced::Font::default()
+                                })
+                                .size(50),
                             row![
                                 text(format!(
-                                    "Start Perusal: {}",
-                                    format_time(exam.perusal_start_time)
+                                    "Perusal: {}",
+                                    format_time(exam.perusal_start_time, TimeAccuracy::Minutes)
                                 ))
                                 .size(50),
-                                text(format!("Start Exam: {}", format_time(exam.exam_start_time)))
-                                    .size(50),
-                                text(format!("Finish Exam: {}", format_time(exam.finish_time)))
-                                    .size(50)
+                                text(format!(
+                                    "Start: {}",
+                                    format_time(exam.exam_start_time, TimeAccuracy::Minutes)
+                                ))
+                                .size(50),
+                                text(format!(
+                                    "Finish: {}",
+                                    format_time(exam.finish_time, TimeAccuracy::Minutes)
+                                ))
+                                .size(50),
+                                button("Delete")
+                                    .on_press(Message::DeleteExam(exam.id))
+                                    .style(theme::Button::Destructive)
                             ]
                             .align_items(Alignment::Center)
                             .spacing(80)
@@ -163,35 +279,31 @@ impl Application for Clock {
                     )
                     .height(100)
                     .center_y()
+                    .center_x()
                     .into()
                 })
                 .collect(),
         )
-        .spacing(30);
+        .spacing(10);
         column![
-            container(
-                text(
-                    self.now
-                        .time()
-                        .to_string()
-                        .split(".")
-                        .collect::<Vec<&str>>()[0],
-                )
-                .size(300),
-            )
-            .width(Length::Fill)
-            .height(Length::FillPortion(1))
-            .center_y()
-            .center_x(),
-            container(exams)
-                .center_x()
+            container(text(format_time(self.now, TimeAccuracy::Seconds)).size(300))
+                .width(Length::Fill)
                 .height(Length::FillPortion(1))
-                .width(Length::Fill),
-            self.open_exams[0]
-                .view()
-                .map(move |message| { Message::OpenExamMessage(message) }),
-            button("Add new exam").on_press(Message::StartExam)
+                .center_y()
+                .center_x(),
+            column![
+                container(exams).center_x().width(Length::Fill),
+                container(new_exams).center_x().width(Length::Fill),
+                container(button("Add new exam").on_press(Message::AddExam))
+                    .width(Length::Fill)
+                    .center_x()
+            ]
+            .spacing(30)
+            .align_items(Alignment::Center)
+            .height(Length::FillPortion(1))
+            .width(Length::Fixed(1500.0))
         ]
+        .align_items(Alignment::Center)
         .into()
     }
 
