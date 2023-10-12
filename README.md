@@ -5,6 +5,7 @@ A simple, clean, offline exam clock app
 - Dark theme well-suited for projectors 
 - Automatic start, perusal, and end times
 - Multiple concurrent exams
+![./screenshot.png]
 ## Installation
 Install the clock app by going to the [latest release](https://github.com/9105854/exam_clock/releases/latest) and downloading it from there.
 ## Issues and Feedback
