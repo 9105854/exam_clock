@@ -92,7 +92,11 @@ fn format_time(time: chrono::DateTime<chrono::Local>, accuracy: TimeAccuracy) ->
     let binding = time.time().to_string();
 
     let formatted_time = &binding.split(":").collect::<Vec<&str>>();
-    let hours = (formatted_time[0].parse::<i32>().unwrap() % 12).to_string();
+    let mut hour_12 = formatted_time[0].parse::<i32>().unwrap() % 12;
+    if hour_12 == 0 {
+        hour_12 = 12
+    }
+    let hours = hour_12.to_string();
     let minutes = formatted_time[1];
     match accuracy {
         TimeAccuracy::Seconds => {
