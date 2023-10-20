@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, row, text, text_input, Column};
+use iced::widget::{button, column, container, pick_list, row, text, text_input, Column};
 use iced::{executor, Length, Renderer};
 use iced::{theme, Alignment};
 use iced::{Application, Command, Element, Settings, Subscription};
@@ -18,6 +18,7 @@ struct NewExam {
     length: String,
     perusal: String,
     id: u32,
+    pre_type: Option<Pre>,
 }
 impl NewExam {
     fn new(clock: &Clock) -> Self {
@@ -26,12 +27,14 @@ impl NewExam {
             length: "".to_string(),
             perusal: "".to_string(),
             id: clock.exam_next_id,
+            pre_type: None,
         }
     }
 }
 
 struct StartedExam {
     name: String,
+    exam_type: Pre,
     perusal_start_time: chrono::DateTime<chrono::Local>,
     exam_start_time: chrono::DateTime<chrono::Local>,
     finish_time: chrono::DateTime<chrono::Local>,
@@ -50,8 +53,13 @@ impl StartedExam {
         } else {
             new_exam.name
         };
+        let exam_type = match new_exam.pre_type {
+            Some(exam_type) => exam_type,
+            None => Pre::Perusal,
+        };
         Ok(StartedExam {
             name,
+            exam_type,
             perusal_start_time,
             exam_start_time,
             finish_time,
@@ -79,13 +87,34 @@ enum InputExamMessage {
     NameEdit((String, u32)),
 
     LengthEdit((String, u32)),
-
+    SelectPre((Option<Pre>, u32)),
     PerusalEdit((String, u32)),
     Start(u32),
 }
 enum TimeAccuracy {
     Seconds,
     Minutes,
+}
+#[derive(Clone, Eq, PartialEq, Default, Debug, Copy)]
+enum Pre {
+    #[default]
+    Perusal,
+    Planning,
+}
+impl Pre {
+    const ALL: [Pre; 2] = [Pre::Perusal, Pre::Planning];
+}
+impl std::fmt::Display for Pre {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Pre::Perusal => "Perusal",
+                Pre::Planning => "Planning",
+            }
+        )
+    }
 }
 
 fn format_time(time: chrono::DateTime<chrono::Local>, accuracy: TimeAccuracy) -> String {
@@ -165,6 +194,14 @@ impl Application for Clock {
                         }
                     }
                 }
+                InputExamMessage::SelectPre((exam_type, id)) => {
+                    for exam in self.new_exams.iter_mut() {
+                        if exam.id == id {
+                            exam.pre_type = exam_type;
+                            break;
+                        }
+                    }
+                }
                 InputExamMessage::LengthEdit((length, id)) => {
                     for exam in self.new_exams.iter_mut() {
                         if exam.id == id {
@@ -218,13 +255,31 @@ impl Application for Clock {
                                 new_exam.id,
                             )))
                         }),
-                        text_input("Perusal", &new_exam.perusal).on_input(|perusal| {
+                        pick_list(&Pre::ALL[..], new_exam.pre_type, |selection| {
+                            Message::InputExamMessage(InputExamMessage::SelectPre((
+                                Some(selection),
+                                new_exam.id,
+                            )))
+                        })
+                        .placeholder("Perusal/Planning"),
+                        text_input(
+                            format!(
+                                "{} Length",
+                                match new_exam.pre_type {
+                                    Some(pre_type) => pre_type,
+                                    None => Pre::Perusal,
+                                }
+                            )
+                            .as_ref(),
+                            &new_exam.perusal
+                        )
+                        .on_input(|perusal| {
                             Message::InputExamMessage(InputExamMessage::PerusalEdit((
                                 perusal.to_string(),
                                 new_exam.id,
                             )))
                         }),
-                        text_input("Length", &new_exam.length).on_input(|length| {
+                        text_input("Exam Length", &new_exam.length).on_input(|length| {
                             Message::InputExamMessage(InputExamMessage::LengthEdit((
                                 length.to_string(),
                                 new_exam.id,
@@ -254,7 +309,8 @@ impl Application for Clock {
                                 .size(50),
                             row![
                                 text(format!(
-                                    "Perusal: {}",
+                                    "{}: {}",
+                                    exam.exam_type,
                                     format_time(exam.perusal_start_time, TimeAccuracy::Minutes)
                                 ))
                                 .size(50),
