@@ -249,7 +249,7 @@ impl Application for Clock {
                 .iter()
                 .map(|new_exam| {
                     row![
-                        text_input("Exam Name", &new_exam.name).on_input(|name| {
+                        text_input("Name", &new_exam.name).on_input(|name| {
                             Message::InputExamMessage(InputExamMessage::NameEdit((
                                 name.to_string(),
                                 new_exam.id,
@@ -285,9 +285,11 @@ impl Application for Clock {
                                 new_exam.id,
                             )))
                         }),
-                        button("Start Exam").on_press(Message::InputExamMessage(
-                            InputExamMessage::Start(new_exam.id)
-                        ))
+                        button("Start")
+                            .on_press(Message::InputExamMessage(InputExamMessage::Start(
+                                new_exam.id
+                            )))
+                            .padding([5, 10])
                     ]
                     .spacing(10)
                     .into()
@@ -327,6 +329,7 @@ impl Application for Clock {
                                 button("Delete")
                                     .on_press(Message::DeleteExam(exam.id))
                                     .style(theme::Button::Destructive)
+                                    .padding([5, 10])
                             ]
                             .align_items(Alignment::Center)
                             .spacing(80)
@@ -351,7 +354,7 @@ impl Application for Clock {
             column![
                 container(exams).center_x().width(Length::Fill),
                 container(new_exams).center_x().width(Length::Fill),
-                container(button("Add new exam").on_press(Message::AddExam))
+                container(button("Add New Exam").on_press(Message::AddExam))
                     .width(Length::Fill)
                     .center_x()
             ]
